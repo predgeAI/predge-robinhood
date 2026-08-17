@@ -112,3 +112,16 @@ been deployed on-chain.** To go live, exactly two steps:
 hello@predge.io · [@predgeAI](https://x.com/predgeAI) · build-in-public.
 Companions: [`predge-arc`](https://github.com/predgeAI/predge-arc) ·
 [`predge-rootstock`](https://github.com/predgeAI/predge-rootstock).
+
+## Support the work
+
+Predge is independent and self-funded. If it's useful, you can back development directly — any chain works:
+
+| Chain | Address |
+|---|---|
+| **EVM** (ETH / Arc / Rootstock / Robinhood / Base) | `0x9084f5000E07C7133D6dA5eE4f271AB6D1821144` |
+| **Bitcoin** | `bc1q50nqg5lxkac9mwqdnj6lt0369mg8snkfam0e3p` |
+| **Solana** | `9dxMRRtC7RKZH5rFZpUywjmnQ87H9qHhtW43u5LYmpV` |
+| **TRON** (TRX / USDT-TRC20) | `TVeWNcGwisQaL5Ge5B3GHG4tN5xX5VGxuU` |
+
+More at [data.predge.io/settlement](https://data.predge.io/settlement).
