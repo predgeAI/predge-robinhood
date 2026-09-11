@@ -72,18 +72,24 @@ npm run deploy-all                # compile (solc 0.8.26, cancun) + deploy all f
 
 Deployed addresses are written to `deploy/*.json` (gitignored).
 
-## Next steps (human — on-chain actions intentionally left undone)
+## Live on-chain (testnet 46630 — deployed 2026-08-17)
 
-This repo is prepared and compile-verified locally. **No wallet has been funded and nothing has
-been deployed on-chain.** To go live, exactly two steps:
+All four primitives are **deployed and verified on Robinhood Chain testnet.** Every deploy
+transaction confirmed with status `0x1`; each address returns non-empty bytecode from
+`eth_getCode`. Deployer: [`0x1d48…cF3c`](https://explorer.testnet.chain.robinhood.com/address/0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c).
 
-1. **Fund the deployer.** Send testnet ETH to the address printed by `npm run genwallet`
-   (already in `.env` as `DEPLOYER_ADDRESS`) at **https://faucet.testnet.chain.robinhood.com**.
-   A small amount is plenty — the four contracts total < 12 KB of bytecode.
-2. **Deploy.** Run `npm run deploy-all`. It compiles and deploys Validator → Bond → Job →
-   Settlement in one process and records addresses to `deploy/`.
+| Contract | Address | Explorer |
+|---|---|---|
+| **PredgeAgentValidator** (ERC-8004) | `0x45774F0a2a56Df6578B25E2662E601Ba29816b2D` | [view](https://explorer.testnet.chain.robinhood.com/address/0x45774F0a2a56Df6578B25E2662E601Ba29816b2D) |
+| **PredgeValidatorBond** (slashable ETH) | `0xf4749E4C23355e84f545322160C8A0831ba7f335` | [view](https://explorer.testnet.chain.robinhood.com/address/0xf4749E4C23355e84f545322160C8A0831ba7f335) |
+| **AgentJob** (ERC-8183) | `0xB00776BBdb177EF003A071a6D90B7236b54c1030` | [view](https://explorer.testnet.chain.robinhood.com/address/0xB00776BBdb177EF003A071a6D90B7236b54c1030) |
+| **PredgeSettlement** (pay-per-call receipt) | `0xB9CC5F71830743664a912cA0f70e019280c1893B` | [view](https://explorer.testnet.chain.robinhood.com/address/0xB9CC5F71830743664a912cA0f70e019280c1893B) |
 
-(Also left for the human: creating the GitHub remote and pushing.)
+Reproduce independently — the deploy metadata (tx hashes, block, args) is in [`deploy/*.json`](deploy/).
+
+**Mainnet (chainId 4663):** the same byte-identical contracts port with no Solidity change; going
+live on mainnet is a single funded `deploy-all` against `rpc.mainnet.chain.robinhood.com` once a
+partner integration warrants it.
 
 ## Portability notes — what changes moving from Arc/Rootstock to Robinhood Chain
 
