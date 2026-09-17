@@ -1,16 +1,20 @@
-// Compile + deploy the whole Predge agent-settlement stack to Robinhood Chain testnet,
-// in one process (shared provider + signer). Order: Validator -> Bond -> Job -> Settlement.
+// Compile + deploy the whole Predge agent-settlement stack in one process (shared provider +
+// signer). Order: Validator -> Bond -> Job -> Settlement. Target chain comes from NETWORK:
+//   npm run deploy-all                         # Robinhood Chain testnet (46630)
+//   NETWORK=rh-mainnet npm run deploy-all      # Robinhood Chain mainnet (4663)
+//   NETWORK=arbitrum-one npm run deploy-all    # Arbitrum One (42161)
 //
-// Prereq: `npm run genwallet` has written .env, and DEPLOYER_ADDRESS is funded with testnet
-// ETH from https://faucet.testnet.chain.robinhood.com .
+// Prereq: `npm run genwallet` has written .env, and DEPLOYER_ADDRESS holds ETH on the target
+// chain (testnet: https://faucet.testnet.chain.robinhood.com).
 import { compileAndDeploy } from "./_compile.mjs";
-import { env, EXPLORER, CHAIN_ID } from "../lib/robinhood.mjs";
+import { env, EXPLORER, CHAIN_ID, NETWORK, IS_MAINNET } from "../lib/robinhood.mjs";
 
 const e = env();
 const validator = e.VALIDATOR_ADDRESS || e.DEPLOYER_ADDRESS;
-const disputeWindow = BigInt(e.BOND_DISPUTE_WINDOW || "1");
+// 1 s is fine for a testnet demo; on mainnet a verdict stays challengeable for a day.
+const disputeWindow = BigInt(e.BOND_DISPUTE_WINDOW || (IS_MAINNET ? "86400" : "1"));
 
-console.log(`\n=== Predge → Robinhood Chain testnet (chainId ${CHAIN_ID}) ===`);
+console.log(`\n=== Predge → ${NETWORK.name} (chainId ${CHAIN_ID}) ===`);
 console.log(`explorer: ${EXPLORER}\n`);
 
 const results = {};

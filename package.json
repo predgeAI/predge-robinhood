@@ -3,14 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Predge agent-settlement stack ported to Robinhood Chain testnet (Arbitrum Orbit L2) — a resolution / dispute-verification oracle for on-chain prediction markets & RWA perps.",
+  "description": "Predge agent-settlement stack ported to Robinhood Chain testnet (Arbitrum Orbit L2) \u2014 a resolution / dispute-verification oracle for on-chain prediction markets & RWA perps.",
   "scripts": {
     "genwallet": "node script/genwallet.mjs",
     "deploy-validator": "node script/deploy-validator.mjs",
     "deploy-bond": "node script/deploy-bond.mjs",
     "deploy-job": "node script/deploy-job.mjs",
     "deploy-settlement": "node script/deploy-settlement.mjs",
-    "deploy-all": "node script/deploy-all.mjs"
+    "deploy-all": "node script/deploy-all.mjs",
+    "estimate-deploy": "node script/estimate-deploy.mjs",
+    "deploy-all:rh-mainnet": "NETWORK=rh-mainnet node script/deploy-all.mjs",
+    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs"
   },
   "dependencies": {
     "ethers": "^6.13.4",

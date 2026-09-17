@@ -6,7 +6,7 @@ import solc from "solc";
 import { ContractFactory } from "ethers";
 import {
   env, makeProvider, makeSigner, withRetry, addressLink, txLink,
-  CHAIN_ID, DEFAULT_RPC, FAUCET,
+  CHAIN_ID, DEFAULT_RPC, FAUCET, NETWORK, IS_MAINNET,
 } from "../lib/robinhood.mjs";
 
 export async function compileContract({ sourcePath, contractName }) {
@@ -43,12 +43,13 @@ export async function compileAndDeploy({ sourcePath, contractName, args = [], ou
     console.error("No PRIVATE_KEY in .env — run `npm run genwallet`.");
     process.exit(1);
   }
-  const provider = makeProvider(e.ROBINHOOD_RPC || DEFAULT_RPC);
+  // ROBINHOOD_RPC in .env is the testnet RPC; only honour it on the testnet.
+  const provider = makeProvider(IS_MAINNET ? e.RPC_URL || DEFAULT_RPC : e.ROBINHOOD_RPC || DEFAULT_RPC);
   const wallet = await makeSigner(e.PRIVATE_KEY, provider);
   const bal = await withRetry("getBalance", () => provider.getBalance(wallet.address));
   console.log("Deployer:", wallet.address, "| wei:", bal.toString());
   if (bal === 0n) {
-    console.error(`Balance is 0. Fund ${wallet.address} at ${FAUCET} and re-run.`);
+    console.error(`Balance is 0 on ${NETWORK.name}. Fund ${wallet.address}${FAUCET ? ` at ${FAUCET}` : " with ETH"} and re-run.`);
     process.exit(1);
   }
 
@@ -61,7 +62,7 @@ export async function compileAndDeploy({ sourcePath, contractName, args = [], ou
   console.log("  " + addressLink(addr));
   console.log("  deploy tx: " + txLink(deployTx.hash));
 
-  const DEPLOY_DIR = new URL("../deploy/", import.meta.url).pathname;
+  const DEPLOY_DIR = new URL(`../deploy/${NETWORK.deployDir}`, import.meta.url).pathname;
   if (!existsSync(DEPLOY_DIR)) mkdirSync(DEPLOY_DIR, { recursive: true });
   writeFileSync(
     DEPLOY_DIR + outFile,
