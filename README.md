@@ -109,6 +109,32 @@ NETWORK=rh-mainnet node script/estimate-deploy.mjs   # dry-run gas estimate
 npm run deploy-all:rh-mainnet                        # or deploy-all:arbitrum-one
 ```
 
+## A real loop on mainnet (2026-09-17)
+
+`script/live-loop.mjs` runs one full accountability loop with a real, live Predge signal:
+fetch `api.predge.io/v1/signal/<wallet>`, verify its ed25519 signature offline against the pinned
+signer `13fa3d18…52d9`, then `validationRequest` → `stakeAndCommit` → `createJob` → `submit` →
+`validationResponse(100)` → `recordScore(100)` → `complete` → `payForRoute`. All eight
+transactions confirmed on both mainnets:
+
+| Step | Robinhood Chain | Arbitrum One |
+|---|---|---|
+| validationRequest | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0x7fdca94d2076e72da466b06e6d007188459e6344f8f0fdf7103d3bc62e88ed23) | [tx](https://arbiscan.io/tx/0x9e7a0609d27564569ce3c0ae1b2e9db7a8ba3428edc9a4b79bf5a55acee67c93) |
+| stakeAndCommit | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0xeac9bd17bfc5f36b6bc53b22b9593e72e005ab60823277ef6805315356c61f49) | [tx](https://arbiscan.io/tx/0xf7753b4d5a643921c13cad5532ef3904fd4c02bf745267aedf26f2565d2321e8) |
+| createJob | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0x4cb36f610a0d65d2c5596a6f44eae11e0eb4660c25a1179d0e24414bf1370ece) | [tx](https://arbiscan.io/tx/0x3c7e5e6c4ac095e5232df0a8ee9bc38c2a2e4c851ed468069f3d222c47dc961f) |
+| submit | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0xbf993fd6c6bdbdfe9fd6f3614d0df31a8c9a9a52891653e3ee16a69ba51b907f) | [tx](https://arbiscan.io/tx/0x2bdb5370c1555aebf3719d24ccaccd56cea736d39a439fdf7b20bae81164ee34) |
+| validationResponse | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0xda3556246e2b75a1cd1a606799f9be1f2cf478888ae54ce14255baa344d16d7a) | [tx](https://arbiscan.io/tx/0x9a1b755c3d0fd7e369d4a19bd333b44f84d7f2f9280decc71c2c83e0e8d8dea1) |
+| recordScore | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0xd149550fb2a42b90807a5883bc187742a297b960c0f487364963d6149ffeafe2) | [tx](https://arbiscan.io/tx/0x8c342dbd5967d4b7761a0fa9e659a46a57c6c3ef9a2fca14f7dd4a1f2bdb03a2) |
+| complete | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0x363c332bba19968046d29378b004886a8743a5fa98f44daf4ec478c4841495fc) | [tx](https://arbiscan.io/tx/0x6066e1afaadc24c43e19cb1c04ffd3d4d34d869b1f1d157982b2d0e4cf4a1f1b) |
+| payForRoute | [tx](https://explorer.mainnet.chain.robinhood.com/tx/0x9aae27b51087711c8ce344f83977e76c3db2e16fece4f7b365ed01048976bd7b) | [tx](https://arbiscan.io/tx/0xa61a1a46764ae401100359ba5e9f3c6980a6966458d0a9a60d6c034bca728b0a) |
+
+The full record (signed signal, hashes, verdict, receipts) is in `deploy/<network>/live-loop-*.json`.
+In this demo one key plays client, provider and validator; in production those are three parties.
+
+```bash
+NETWORK=rh-mainnet node script/live-loop.mjs [wallet]
+```
+
 ## Portability notes — what changes moving from Arc/Rootstock to Robinhood Chain
 
 - **Fee model — standard EIP-1559, no legacy hack.** Unlike Rootstock (which forces legacy
