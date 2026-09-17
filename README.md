@@ -55,8 +55,8 @@ deployment (see the portability note below).
 | Fee model | **Standard EIP-1559** — latest block carries `baseFeePerGas` (0.01 gwei); `eth_maxPriorityFeePerGas` answers `0x0` |
 | L2 type | Arbitrum Orbit (Nitro) |
 
-> Not to be confused with **mainnet** (chainId 4663, `rpc.mainnet.chain.robinhood.com`). This
-> repo targets **testnet 46630** everywhere.
+> Mainnet is chainId 4663 (`rpc.mainnet.chain.robinhood.com`). Scripts default to testnet 46630;
+> set `NETWORK=rh-mainnet` or `NETWORK=arbitrum-one` to target a mainnet (see below).
 
 ## Reproduce it
 
@@ -87,9 +87,27 @@ transaction confirmed with status `0x1`; each address returns non-empty bytecode
 
 Reproduce independently — the deploy metadata (tx hashes, block, args) is in [`deploy/*.json`](deploy/).
 
-**Mainnet (chainId 4663):** the same byte-identical contracts port with no Solidity change; going
-live on mainnet is a single funded `deploy-all` against `rpc.mainnet.chain.robinhood.com` once a
-partner integration warrants it.
+## Live on mainnet (deployed 2026-09-17)
+
+The same byte-identical contracts are live on **Robinhood Chain mainnet (chainId 4663)** and
+**Arbitrum One (chainId 42161)**. The deployer's nonces lined up, so the addresses match the
+testnet ones. Every deploy tx confirmed with status `0x1`, every address returns bytecode, and
+`PredgeValidatorBond.disputeWindow()` reads `86400` (1 day) on both chains.
+
+| Contract | Address | Robinhood Chain | Arbitrum One |
+|---|---|---|---|
+| **PredgeAgentValidator** (ERC-8004) | `0x45774F0a2a56Df6578B25E2662E601Ba29816b2D` | [view](https://explorer.mainnet.chain.robinhood.com/address/0x45774F0a2a56Df6578B25E2662E601Ba29816b2D) | [view](https://arbiscan.io/address/0x45774F0a2a56Df6578B25E2662E601Ba29816b2D) |
+| **PredgeValidatorBond** (slashable ETH) | `0xf4749E4C23355e84f545322160C8A0831ba7f335` | [view](https://explorer.mainnet.chain.robinhood.com/address/0xf4749E4C23355e84f545322160C8A0831ba7f335) | [view](https://arbiscan.io/address/0xf4749E4C23355e84f545322160C8A0831ba7f335) |
+| **AgentJob** (ERC-8183) | `0xB00776BBdb177EF003A071a6D90B7236b54c1030` | [view](https://explorer.mainnet.chain.robinhood.com/address/0xB00776BBdb177EF003A071a6D90B7236b54c1030) | [view](https://arbiscan.io/address/0xB00776BBdb177EF003A071a6D90B7236b54c1030) |
+| **PredgeSettlement** (pay-per-call receipt) | `0xB9CC5F71830743664a912cA0f70e019280c1893B` | [view](https://explorer.mainnet.chain.robinhood.com/address/0xB9CC5F71830743664a912cA0f70e019280c1893B) | [view](https://arbiscan.io/address/0xB9CC5F71830743664a912cA0f70e019280c1893B) |
+
+Deploy metadata (tx hashes, args) is in [`deploy/rh-mainnet/`](deploy/rh-mainnet/) and
+[`deploy/arbitrum-one/`](deploy/arbitrum-one/). To redeploy elsewhere:
+
+```bash
+NETWORK=rh-mainnet node script/estimate-deploy.mjs   # dry-run gas estimate
+npm run deploy-all:rh-mainnet                        # or deploy-all:arbitrum-one
+```
 
 ## Portability notes — what changes moving from Arc/Rootstock to Robinhood Chain
 

@@ -79,6 +79,6 @@ export async function compileAndDeploy({ sourcePath, contractName, args = [], ou
       2,
     ) + "\n",
   );
-  console.log(`Wrote deploy/${outFile}`);
+  console.log(`Wrote deploy/${NETWORK.deployDir}${outFile}`);
   return { address: addr, abi, wallet, provider };
 }

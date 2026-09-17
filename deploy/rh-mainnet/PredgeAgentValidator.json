@@ -1,0 +1,10 @@
+{
+  "address": "0x45774F0a2a56Df6578B25E2662E601Ba29816b2D",
+  "deployer": "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
+  "chainId": 4663,
+  "deployTx": "0x9346893184a772bc7dfaa3edd673197b7425e2819adc613077893ad9b3499fb5",
+  "deployedAt": "2026-09-17T13:49:19.302Z",
+  "args": [
+    "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c"
+  ]
+}
