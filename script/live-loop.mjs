@@ -2,9 +2,9 @@
 //
 //   1. fetch a signed Predge signal from api.predge.io and verify its ed25519 signature offline
 //   2. PredgeAgentValidator.validationRequest  - commit requestHash = keccak256(signed signal bytes)
-//   3. PredgeValidatorBond.stakeAndCommit       - stake ETH behind sha256(deliverable)
-//   4. AgentJob.createJob                       - client escrows ETH, evaluator = Predge validator
-//   5. AgentJob.submit                          - provider hands in the deliverable commitment
+//   3. AgentJob.createJob                       - client escrows ETH, evaluator = Predge validator
+//   4. PredgeValidatorBond.stakeAndCommit       - stake ETH behind sha256(deliverable), bound to the job
+//   5. AgentJob.submit                          - the PROVIDER, a separate key, commits the deliverable
 //   6. PredgeAgentValidator.validationResponse  - verdict 100 (signature verified), responseHash
 //   7. PredgeValidatorBond.recordScore          - verdict recorded behind the bond (1-day challenge window)
 //   8. AgentJob.complete                        - escrow released, reason = responseHash
@@ -26,7 +26,7 @@ import {
 const PREDGE_API = process.env.PREDGE_API || "https://api.predge.io";
 const DEFAULT_WALLET = "0x0224bb9eb0a5c9fd261ac9123a72cbdd5748292a";
 const PINNED_KEY = "13fa3d18a369e6c71bf941563ba47822b30182273d5106a0e8fb61c5016352d9";
-const VALUES = { bond: parseEther("0.00002"), escrow: parseEther("0.00001"), pay: parseEther("0.000005") };
+const VALUES = { bond: parseEther("0.00002"), escrow: parseEther("0.00001"), pay: parseEther("0.000005"), providerGas: parseEther("0.00005") };
 
 const VALIDATOR_ABI = [
   "function validationRequest(address validatorAddress, uint256 agentId, string requestURI, bytes32 requestHash)",
@@ -34,7 +34,7 @@ const VALIDATOR_ABI = [
   "function validator() view returns (address)",
 ];
 const BOND_ABI = [
-  "function stakeAndCommit(bytes32 requestHash, bytes32 expected) payable",
+  "function stakeAndCommit(bytes32 requestHash, bytes32 expected, uint256 jobId) payable",
   "function recordScore(bytes32 requestHash, uint8 score)",
 ];
 const JOB_ABI = [
@@ -66,9 +66,14 @@ const addr = (name) => {
 const e = env();
 const provider = makeProvider(IS_MAINNET ? e.RPC_URL || DEFAULT_RPC : e.ROBINHOOD_RPC || DEFAULT_RPC);
 const wallet = await makeSigner(e.PRIVATE_KEY, provider);
+// The provider must be a different party from the validator, or the bond is theatre: one key
+// writing both the deliverable and the verdict can never be caught. Derived deterministically
+// from the operator key so the loop stays reproducible without a second secret to manage.
+const providerWallet = await makeSigner(keccak256(toUtf8Bytes(`${e.PRIVATE_KEY}:predge-loop-provider`)), provider);
 const validator = new Contract(addr("PredgeAgentValidator"), VALIDATOR_ABI, wallet);
 const bond = new Contract(addr("PredgeValidatorBond"), BOND_ABI, wallet);
 const job = new Contract(addr("AgentJob"), JOB_ABI, wallet);
+const jobAsProvider = new Contract(addr("AgentJob"), JOB_ABI, providerWallet);
 const settlement = new Contract(addr("PredgeSettlement"), SETTLEMENT_ABI, wallet);
 
 const target = process.argv[2] || DEFAULT_WALLET;
@@ -102,11 +107,17 @@ async function send(label, fn) {
 }
 
 await send("validationRequest", () => validator.validationRequest(wallet.address, 0, url, requestHash));
-await send("stakeAndCommit", () => bond.stakeAndCommit(requestHash, expected, { value: VALUES.bond }));
-const created = await send("createJob", () => job.createJob(wallet.address, wallet.address, requestHash, { value: VALUES.escrow }));
+// Top the provider up so it can pay for its own submit; that transaction has to come from
+// its key, not ours, for the challenge to mean anything.
+if ((await provider.getBalance(providerWallet.address)) < VALUES.providerGas) {
+  await send("fundProvider", () => wallet.sendTransaction({ to: providerWallet.address, value: VALUES.providerGas }));
+}
+// The job comes first now: the bond binds to it, and a challenge reads the deliverable from it.
+const created = await send("createJob", () => job.createJob(providerWallet.address, wallet.address, requestHash, { value: VALUES.escrow }));
 const jobId = created.logs.map((l) => { try { return job.interface.parseLog(l); } catch { return null; } })
   .find((l) => l?.name === "JobCreated").args.jobId;
-await send("submit", () => job.submit(jobId, expected, "0x"));
+await send("stakeAndCommit", () => bond.stakeAndCommit(requestHash, expected, jobId, { value: VALUES.bond }));
+await send("submit", () => jobAsProvider.submit(jobId, expected, "0x"));
 await send("validationResponse", () => validator.validationResponse(requestHash, 100, url, responseHash, "predge-signal-verified"));
 await send("recordScore", () => bond.recordScore(requestHash, 100));
 await send("complete", () => job.complete(jobId, responseHash, "0x"));
