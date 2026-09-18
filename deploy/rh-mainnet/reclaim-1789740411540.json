@@ -1,0 +1,14 @@
+{
+  "network": "rh-mainnet",
+  "chainId": 4663,
+  "bond": "0xf4749E4C23355e84f545322160C8A0831ba7f335",
+  "at": "2026-09-18T14:06:51.540Z",
+  "reclaimed": [
+    {
+      "requestHash": "0x9e7525c97bbf7473db5abbf946fb8c15db58319621dac1df9b621182c74cb00d",
+      "bond": "0.00002",
+      "tx": "0xb075cfef9af435489c10917a8c5209e32fa73fe3224797901217be20316a7df1",
+      "status": 1
+    }
+  ]
+}

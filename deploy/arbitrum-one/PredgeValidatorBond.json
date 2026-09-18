@@ -1,11 +1,12 @@
 {
-  "address": "0xf4749E4C23355e84f545322160C8A0831ba7f335",
+  "address": "0x97d592796Aa3c72cf7920fC204A963bd3Bd8ac0B",
   "deployer": "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
   "chainId": 42161,
-  "deployTx": "0xc79be474f2bf7a2bd746a07ebb0fcc2a4ccb0ddfbff8d1d0a272be0da2c51235",
-  "deployedAt": "2026-09-17T13:51:15.294Z",
+  "deployTx": "0x18fa98899b82d6ce954031e2c281c61e4923b9f1b05269d78566f80355703d3a",
+  "deployedAt": "2026-09-18T14:16:42.980Z",
   "args": [
     "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
+    "0xB00776BBdb177EF003A071a6D90B7236b54c1030",
     "86400"
   ]
 }
