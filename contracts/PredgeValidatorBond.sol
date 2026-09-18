@@ -34,6 +34,11 @@ pragma solidity ^0.8.24;
 ///           4. `reclaim(requestHash)` — after the dispute window with no successful
 ///              challenge, the validator withdraws its own bond.
 ///
+///         The stake size is the validator's choice per request, and it is an economic floor as
+///         much as a moral one: below the gas a challenge costs on that chain, nobody sends one
+///         and the bond secures nothing. Demo loops here stake dust deliberately; a production
+///         validator sizes the stake far above challenge gas.
+///
 ///         So the validator's attestation is not "trust our signature" — it is "we have
 ///         staked USDC that anyone can take if we are wrong, and the test is public and
 ///         deterministic." That is the credible-commitment the receipt crowd lacks.
