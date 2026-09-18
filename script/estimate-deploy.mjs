@@ -10,7 +10,8 @@ const provider = makeProvider(IS_MAINNET ? e.RPC_URL || DEFAULT_RPC : e.ROBINHOO
 const validator = e.VALIDATOR_ADDRESS || from;
 const plan = [
   ["PredgeAgentValidator", [validator]],
-  ["PredgeValidatorBond", [validator, IS_MAINNET ? 86400n : 1n]],
+  // The job address is a constructor argument now; any address estimates the same gas.
+  ["PredgeValidatorBond", [validator, validator, IS_MAINNET ? 86400n : 1n]],
   ["AgentJob", []],
   ["PredgeSettlement", []],
 ];

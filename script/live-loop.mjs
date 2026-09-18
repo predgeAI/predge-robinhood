@@ -26,7 +26,7 @@ import {
 const PREDGE_API = process.env.PREDGE_API || "https://api.predge.io";
 const DEFAULT_WALLET = "0x0224bb9eb0a5c9fd261ac9123a72cbdd5748292a";
 const PINNED_KEY = "13fa3d18a369e6c71bf941563ba47822b30182273d5106a0e8fb61c5016352d9";
-const VALUES = { bond: parseEther("0.00002"), escrow: parseEther("0.00001"), pay: parseEther("0.000005"), providerGas: parseEther("0.00005") };
+const VALUES = { bond: parseEther("0.00002"), escrow: parseEther("0.00001"), pay: parseEther("0.000005") };
 
 const VALIDATOR_ABI = [
   "function validationRequest(address validatorAddress, uint256 agentId, string requestURI, bytes32 requestHash)",
@@ -108,9 +108,12 @@ async function send(label, fn) {
 
 await send("validationRequest", () => validator.validationRequest(wallet.address, 0, url, requestHash));
 // Top the provider up so it can pay for its own submit; that transaction has to come from
-// its key, not ours, for the challenge to mean anything.
-if ((await provider.getBalance(providerWallet.address)) < VALUES.providerGas) {
-  await send("fundProvider", () => wallet.sendTransaction({ to: providerWallet.address, value: VALUES.providerGas }));
+// its key, not ours, for the challenge to mean anything. Priced from the chain rather than
+// hardcoded, because the native unit differs per network (USDC on Arc, ETH elsewhere).
+const feeData = await withRetry("feeData", () => provider.getFeeData());
+const providerGas = (feeData.maxFeePerGas ?? feeData.gasPrice ?? 1000000000n) * 200000n;
+if ((await provider.getBalance(providerWallet.address)) < providerGas) {
+  await send("fundProvider", () => wallet.sendTransaction({ to: providerWallet.address, value: providerGas }));
 }
 // The job comes first now: the bond binds to it, and a challenge reads the deliverable from it.
 const created = await send("createJob", () => job.createJob(providerWallet.address, wallet.address, requestHash, { value: VALUES.escrow }));
