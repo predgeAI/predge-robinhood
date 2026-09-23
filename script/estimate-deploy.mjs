@@ -2,7 +2,7 @@
 //   NETWORK=rh-mainnet node script/estimate-deploy.mjs
 import { ContractFactory, formatEther } from "ethers";
 import { compileContract } from "./_compile.mjs";
-import { env, makeProvider, DEFAULT_RPC, NETWORK, IS_MAINNET } from "../lib/robinhood.mjs";
+import { env, makeProvider, DEFAULT_RPC, NETWORK, IS_MAINNET, SYMBOL } from "../lib/robinhood.mjs";
 
 const e = env();
 const from = e.DEPLOYER_ADDRESS;
@@ -31,5 +31,5 @@ for (const [name, args] of plan) {
 }
 const cost = totalGas * price;
 console.log(`\n${NETWORK.name}: total gas ${totalGas}, maxFee ${price} wei/gas`);
-console.log(`estimated cost ${formatEther(cost)} ETH (fund at least ${formatEther(cost * 2n)} ETH for headroom)`);
-console.log(`balance of ${from}: ${formatEther(await provider.getBalance(from))} ETH`);
+console.log(`estimated cost ${formatEther(cost)} ${SYMBOL} (fund at least ${formatEther(cost * 2n)} ${SYMBOL} for headroom)`);
+console.log(`balance of ${from}: ${formatEther(await provider.getBalance(from))} ${SYMBOL}`);

@@ -13,7 +13,9 @@
     "deploy-all": "node script/deploy-all.mjs",
     "estimate-deploy": "node script/estimate-deploy.mjs",
     "deploy-all:rh-mainnet": "NETWORK=rh-mainnet node script/deploy-all.mjs",
-    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs"
+    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs",
+    "deploy-all:celo-mainnet": "NETWORK=celo-mainnet node script/deploy-all.mjs",
+    "estimate-deploy:celo-mainnet": "NETWORK=celo-mainnet node script/estimate-deploy.mjs"
   },
   "dependencies": {
     "ethers": "^6.13.4",
