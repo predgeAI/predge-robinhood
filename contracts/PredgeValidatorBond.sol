@@ -31,8 +31,8 @@ pragma solidity ^0.8.24;
 ///                 score 0   but deliverable == expected → falsely failed → SLASH
 ///              An honest verdict is unslashable: with both sides of the comparison fixed
 ///              on-chain by two different parties, a challenge against it always reverts.
-///           4. `reclaim(requestHash)` — after the dispute window with no successful
-///              challenge, the validator withdraws its own bond.
+///           4. `reclaim(requestHash)` — after the dispute window, measured FROM THE VERDICT
+///              (`recordScore`), with no successful challenge, the validator withdraws its bond.
 ///
 ///         The stake size is the validator's choice per request, and it is an economic floor as
 ///         much as a moral one: below the gas a challenge costs on that chain, nobody sends one
@@ -74,6 +74,7 @@ contract PredgeValidatorBond {
         bool scored; // true once a verdict is recorded
         bool closed; // true once slashed or reclaimed (permanent)
         uint256 jobId; // the job whose provider-submitted deliverable settles a challenge
+        uint64 scoredAt; // chain time the verdict was recorded; the dispute window runs from here
     }
 
     address public owner;
@@ -166,6 +167,7 @@ contract PredgeValidatorBond {
         if (s.scored) revert AlreadyScored();
         s.score = score;
         s.scored = true;
+        s.scoredAt = uint64(block.timestamp);
         emit Scored(requestHash, score, uint64(block.timestamp));
     }
 
@@ -214,7 +216,12 @@ contract PredgeValidatorBond {
         if (s.stakedAt == 0) revert NotCommitted();
         if (!s.scored) revert NotScored();
         if (s.closed) revert Closed();
-        if (block.timestamp < s.stakedAt + disputeWindow) revert WindowOpen();
+        // The dispute window runs from the VERDICT, not the stake. If it ran from `stakedAt`,
+        // a validator could stake, let the window elapse, and only then record a score the
+        // provider's on-chain deliverable contradicts — reclaiming in the same breath, with
+        // no time left for anyone to challenge. `recordScore` has no deadline, so the window
+        // has to start when the verdict (the thing a challenge checks) actually exists.
+        if (block.timestamp < s.scoredAt + disputeWindow) revert WindowOpen();
 
         uint96 bond = s.bond;
         s.closed = true;
