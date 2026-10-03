@@ -93,17 +93,22 @@ The same byte-identical contracts are live on **Robinhood Chain mainnet (chainId
 **Arbitrum One (chainId 42161)**. The deployer's nonces lined up, so three of the four addresses
 match the testnet ones. `PredgeValidatorBond` does not: it was redeployed on 2026-09-18 to close
 a flaw where `challenge()` slashed on arbitrary bytes, which made an honest verdict slashable by
-anyone. That redeploy happened independently on each chain, so the bond has a **different address
-per chain** — the table below gives both. Every deploy tx confirmed with status `0x1`, every
+anyone, and again on 2026-10-03 (v2.1) so the dispute window runs from the verdict
+(`recordScore`) rather than from the stake: before that fix a validator could record a verdict
+after the window had already elapsed and reclaim before anyone could challenge. Each redeploy
+happened independently on each chain, so the bond has a **different address per chain** — the
+table below gives both. Every deploy tx confirmed with status `0x1`, every
 address returns bytecode, and `PredgeValidatorBond.disputeWindow()` reads `86400` (1 day) on both
 chains.
 
 | Contract | Address | Robinhood Chain | Arbitrum One |
 |---|---|---|---|
 | **PredgeAgentValidator** (ERC-8004) | `0x45774F0a2a56Df6578B25E2662E601Ba29816b2D` | [view](https://explorer.mainnet.chain.robinhood.com/address/0x45774F0a2a56Df6578B25E2662E601Ba29816b2D) | [view](https://arbiscan.io/address/0x45774F0a2a56Df6578B25E2662E601Ba29816b2D) |
-| **PredgeValidatorBond** (slashable ETH) | per chain, see right | [`0xD808FdDa…`](https://explorer.mainnet.chain.robinhood.com/address/0xD808FdDa0aD9839e4a527D2DA32ab550CCb9D350) | [`0x97d59279…`](https://arbiscan.io/address/0x97d592796Aa3c72cf7920fC204A963bd3Bd8ac0B) |
+| **PredgeValidatorBond** (slashable ETH) | per chain, see right | [`0xee76acb0…`](https://explorer.mainnet.chain.robinhood.com/address/0xee76acb042d21EEd8320d44a48E03738288f9737) | [`0x3db39A8d…`](https://arbiscan.io/address/0x3db39A8dFdc7157f8B8a2AacD201081378Cef04f) |
 | **AgentJob** (ERC-8183) | `0xB00776BBdb177EF003A071a6D90B7236b54c1030` | [view](https://explorer.mainnet.chain.robinhood.com/address/0xB00776BBdb177EF003A071a6D90B7236b54c1030) | [view](https://arbiscan.io/address/0xB00776BBdb177EF003A071a6D90B7236b54c1030) |
 | **PredgeSettlement** (pay-per-call receipt) | `0xB9CC5F71830743664a912cA0f70e019280c1893B` | [view](https://explorer.mainnet.chain.robinhood.com/address/0xB9CC5F71830743664a912cA0f70e019280c1893B) | [view](https://arbiscan.io/address/0xB9CC5F71830743664a912cA0f70e019280c1893B) |
+
+The v2 bonds from 2026-09-18 (`0xD808FdDa…D350` on Robinhood Chain, `0x97d59279…8ac0B` on Arbitrum One) are still on chain; nothing new stakes to them. Their records are in `deploy/*/PredgeValidatorBond.v2-2026-09-18.json`.
 
 Deploy metadata (tx hashes, args) is in [`deploy/rh-mainnet/`](deploy/rh-mainnet/) and
 [`deploy/arbitrum-one/`](deploy/arbitrum-one/). To redeploy elsewhere:
