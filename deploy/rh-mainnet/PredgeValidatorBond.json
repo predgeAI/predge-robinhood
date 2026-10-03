@@ -1,12 +1,17 @@
 {
-  "address": "0xD808FdDa0aD9839e4a527D2DA32ab550CCb9D350",
+  "address": "0xee76acb042d21EEd8320d44a48E03738288f9737",
   "deployer": "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
   "chainId": 4663,
-  "deployTx": "0xdd0ebf2952fafccc5f115a82b03df3540ed4579be227a44d8cdeed56bd018356",
-  "deployedAt": "2026-09-18T14:16:32.069Z",
+  "deployTx": "0xd7b4047be3d34b00249ff66d13fd457efe82ae0218177a483173b638de689547",
+  "deployedAt": "2026-10-03T10:24:13.663Z",
   "args": [
     "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
     "0xB00776BBdb177EF003A071a6D90B7236b54c1030",
     "86400"
-  ]
+  ],
+  "version": "v2.1",
+  "source": "predge-robinhood@bc57c52:contracts/PredgeValidatorBond.sol",
+  "runtimeKeccak": "0x051a7034c1b60a06f26bf2104144fbc3539776a43947bc0a41e1c51e67dd529a",
+  "replaces": "0xD808FdDa0aD9839e4a527D2DA32ab550CCb9D350",
+  "fix": "Dispute window is counted from recordScore (the verdict), not from stakeAndCommit. Closes audit finding F1 (2026-10-03): a validator could record a verdict after the window and reclaim before anyone challenged."
 }

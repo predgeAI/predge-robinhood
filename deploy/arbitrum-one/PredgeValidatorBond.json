@@ -1,12 +1,19 @@
 {
-  "address": "0x97d592796Aa3c72cf7920fC204A963bd3Bd8ac0B",
+  "address": "0x3db39A8dFdc7157f8B8a2AacD201081378Cef04f",
   "deployer": "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
   "chainId": 42161,
-  "deployTx": "0x18fa98899b82d6ce954031e2c281c61e4923b9f1b05269d78566f80355703d3a",
-  "deployedAt": "2026-09-18T14:16:42.980Z",
+  "deployTx": "0x93740a6d2cc92ea82d4a0073bf5bd66336fd932614501c9a8df4bc97a33e837b",
+  "deployedAt": "2026-10-03T10:25:11.946Z",
   "args": [
     "0x1d48382F0Fe3Fc7fC569cd04aabcf183Ee97cF3c",
     "0xB00776BBdb177EF003A071a6D90B7236b54c1030",
     "86400"
-  ]
+  ],
+  "version": "v2.1",
+  "source": "predge-robinhood@bc57c52:contracts/PredgeValidatorBond.sol",
+  "runtimeKeccak": "0x051a7034c1b60a06f26bf2104144fbc3539776a43947bc0a41e1c51e67dd529a",
+  "replaces": "0x97d592796Aa3c72cf7920fC204A963bd3Bd8ac0B",
+  "fix": "Dispute window is counted from recordScore (the verdict), not from stakeAndCommit. Closes audit finding F1 (2026-10-03): a validator could record a verdict after the window and reclaim before anyone challenged.",
+  "burnTx": "0x48c859b5d69f524f30ebb0c5b0c58ef08d904b35f4f8c87a6a5cd1ddd43aebf9",
+  "burnNote": "0-value self-transfer that consumed nonce 13, so the bond did not land on 0xD808FdDa\u2026D350 (the old v2 bond address on Robinhood Chain)."
 }

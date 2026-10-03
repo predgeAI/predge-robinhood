@@ -12,8 +12,10 @@
 //
 //   NETWORK=rh-mainnet node script/live-loop.mjs [wallet]
 //
-// One key plays client, provider and validator here so the demo needs a single funded wallet; in
-// production those are three parties. Amounts are dust (see VALUES). Receipts go to
+// The client and validator share one key so the demo runs from a single funded wallet; the
+// provider is always a separate key, because a bond that the verdict-writer could have signed
+// proves nothing. Set PROVIDER_PRIVATE_KEY to make that key genuinely independent (see
+// script/README.md). Amounts are dust (see VALUES). Receipts go to
 // deploy/<network>/live-loop-<timestamp>.json.
 import crypto from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -67,9 +69,36 @@ const e = env();
 const provider = makeProvider(IS_MAINNET ? e.RPC_URL || DEFAULT_RPC : e.ROBINHOOD_RPC || DEFAULT_RPC);
 const wallet = await makeSigner(e.PRIVATE_KEY, provider);
 // The provider must be a different party from the validator, or the bond is theatre: one key
-// writing both the deliverable and the verdict can never be caught. Derived deterministically
-// from the operator key so the loop stays reproducible without a second secret to manage.
-const providerWallet = await makeSigner(keccak256(toUtf8Bytes(`${e.PRIVATE_KEY}:predge-loop-provider`)), provider);
+// writing both the deliverable and the verdict can never be caught.
+//
+// PROVIDER_PRIVATE_KEY is that party for real: a key the operator never derives, so the
+// provider is independent in fact and not merely at a different address. Without it we fall
+// back to a key derived from the operator key, which keeps the loop runnable from one funded
+// wallet but leaves all three roles under one person's control — so the run says which of the
+// two it was, and the receipt records it. A receipt that cannot tell them apart is a receipt
+// that overclaims.
+const providerKey = (e.PROVIDER_PRIVATE_KEY || "").trim();
+const providerIndependent = providerKey.length > 0;
+let providerWallet;
+if (providerIndependent) {
+  try {
+    providerWallet = await makeSigner(providerKey, provider);
+  } catch (err) {
+    throw new Error(
+      `PROVIDER_PRIVATE_KEY is set but is not a usable private key (${err.shortMessage || err.message}). ` +
+      `Expected 32 bytes of hex, 0x-prefixed. Generate one with \`npm run genwallet\`, or unset the ` +
+      `variable to fall back to the key derived from PRIVATE_KEY.`,
+    );
+  }
+  if (providerWallet.address.toLowerCase() === wallet.address.toLowerCase()) {
+    throw new Error(
+      "PROVIDER_PRIVATE_KEY resolves to the same address as PRIVATE_KEY, so the provider would " +
+      "sign its own verdict and the bond would prove nothing. Use a different key.",
+    );
+  }
+} else {
+  providerWallet = await makeSigner(keccak256(toUtf8Bytes(`${e.PRIVATE_KEY}:predge-loop-provider`)), provider);
+}
 const validator = new Contract(addr("PredgeAgentValidator"), VALIDATOR_ABI, wallet);
 const bond = new Contract(addr("PredgeValidatorBond"), BOND_ABI, wallet);
 const job = new Contract(addr("AgentJob"), JOB_ABI, wallet);
@@ -78,7 +107,12 @@ const settlement = new Contract(addr("PredgeSettlement"), SETTLEMENT_ABI, wallet
 
 const target = process.argv[2] || DEFAULT_WALLET;
 console.log(`\n=== Predge live loop on ${NETWORK.name} ===`);
-console.log(`operator ${wallet.address} | balance ${formatEther(await provider.getBalance(wallet.address))} ETH\n`);
+console.log(`operator ${wallet.address} | balance ${formatEther(await provider.getBalance(wallet.address))} ETH`);
+console.log(
+  `provider ${providerWallet.address} | ${providerIndependent
+    ? "independent key (PROVIDER_PRIVATE_KEY)"
+    : "derived from the operator key — set PROVIDER_PRIVATE_KEY for three genuinely independent parties"}\n`,
+);
 
 // 1. real signed signal
 const url = `${PREDGE_API}/v1/signal/${target}`;
@@ -130,6 +164,10 @@ const out = new URL(`../deploy/${NETWORK.deployDir}live-loop-${Date.now()}.json`
 writeFileSync(out, JSON.stringify({
   network: NETWORK_NAME, chainId: Number(NETWORK.chainId), ranAt: new Date().toISOString(),
   signalUrl: url, signal, requestHash, expectedSha256: expected, responseHash, verdict, jobId: jobId.toString(),
+  parties: {
+    client: wallet.address, validator: wallet.address, provider: providerWallet.address,
+    providerIndependent,
+  },
   values: Object.fromEntries(Object.entries(VALUES).map(([k, v]) => [k, formatEther(v)])), receipts,
 }, null, 2) + "\n");
 console.log(`\nreceipts -> ${out}`);

@@ -1,5 +1,7 @@
 .env
 .env.*
+# …but the template carries no secrets and is the only place the variables are listed.
+!.env.example
 node_modules/
 dist/
 deploy/*.json
