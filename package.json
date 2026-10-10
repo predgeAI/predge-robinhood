@@ -13,7 +13,10 @@
     "deploy-all": "node script/deploy-all.mjs",
     "estimate-deploy": "node script/estimate-deploy.mjs",
     "deploy-all:rh-mainnet": "NETWORK=rh-mainnet node script/deploy-all.mjs",
-    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs"
+    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs",
+    "test": "node test/cctp-dispute-escrow.test.mjs && node test/bond-reclaim-window.test.mjs",
+    "deploy-cctp-escrow:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-cctp-escrow.mjs",
+    "cctp-m2": "node script/cctp-m2-dispute.mjs"
   },
   "dependencies": {
     "ethers": "^6.13.4",
@@ -21,5 +24,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "ganache": "^7.9.2"
   }
 }

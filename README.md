@@ -184,3 +184,27 @@ Predge is independent and self-funded. If it's useful, you can back development 
 | **TRON** (TRX / USDT-TRC20) | `TVeWNcGwisQaL5Ge5B3GHG4tN5xX5VGxuU` |
 
 More at [data.predge.io/settlement](https://data.predge.io/settlement).
+
+## Cross-chain dispute settlement over CCTP V2 (Arbitrum One, funded from Base)
+
+`contracts/PredgeCctpDisputeEscrow.sol` settles a dispute raised on Arbitrum One with USDC burned on
+Base through Circle CCTP V2.
+
+1. `openDispute(requestHash, respondent, requestURI)` on Arbitrum. The caller is the claimant; the escrow
+   files the ERC-8004 validation request in `PredgeAgentValidator`, so the verdict cannot predate the dispute.
+2. `depositForBurnWithHook` on Base with `mintRecipient = destinationCaller = escrow` and
+   `hookData = requestHash`.
+3. `fund(message, attestation)` on Arbitrum: the escrow calls `MessageTransmitterV2.receiveMessage` itself
+   and credits the minted USDC to the dispute named in the hook data.
+4. The validator records the verdict (`validationResponse`) in `PredgeAgentValidator`.
+5. `resolve(requestHash)`, callable by anyone: `score`% of the pot to the respondent, the rest to the
+   claimant (0 = full refund).
+
+No owner, no admin path. The verdict is only as independent as the validator seat in `PredgeAgentValidator`.
+
+```bash
+npm test                                                     # offline, ganache + mock CCTP transmitter
+NETWORK=arbitrum-one node script/deploy-cctp-escrow.mjs --estimate
+node script/cctp-m2-dispute.mjs                              # read-only plan and Base simulation
+node script/cctp-m2-dispute.mjs --verify                     # read-only proof table for a recorded run
+```
