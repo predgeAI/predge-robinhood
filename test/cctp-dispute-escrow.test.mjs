@@ -115,68 +115,76 @@ const ATT = "0x";
 const bal = async (s) => usdc.balanceOf(typeof s === "string" ? s : await s.getAddress());
 const verdict = async (h, score) => (await registry.connect(operator).validationResponse(h, score, "ipfs://verdict", keccak256(toUtf8Bytes("v" + h + score)), "predge/cctp-dispute", GAS)).wait();
 const R = await respondent.getAddress();
+const tick = async (sec = 2) => { await provider.send("evm_increaseTime", [sec]); await provider.send("evm_mine", []); };
+/** Open a dispute as `signer` with salt keccak256(label); returns the dispute id. */
+async function open(signer, label, respondentAddr = R) {
+  const salt = keccak256(toUtf8Bytes(label));
+  await (await escrow.connect(signer).openDispute(salt, respondentAddr, "https://api.predge.io/x", GAS)).wait();
+  return escrow.disputeId(await signer.getAddress(), salt);
+}
+const withdraw = async (s) => { const b = await bal(s); await (await escrow.connect(s).withdraw(GAS)).wait(); return (await bal(s)) - b; };
 
-// 1. Full refund: verdict 0 sends the whole credited pot to the claimant.
+// 1. Full refund: verdict 0 credits the whole pot to the claimant, who withdraws it.
 {
-  const h = keccak256(toUtf8Bytes("dispute-refund"));
-  await (await escrow.connect(claimant).openDispute(h, R, "https://api.predge.io/x", GAS)).wait();
+  const h = await open(claimant, "dispute-refund");
   assert.equal(await registry.isValidated(h), false);
   const [, , , , , requestedAt] = await registry.getValidationStatus(h);
   assert.ok(requestedAt > 0n, "openDispute files the ERC-8004 request");
-  await reverts(escrow, relayer, "resolve", [h], "NoVerdict()");
+  await reverts(escrow, relayer, "resolve", [h], "NotFunded()");
   await (await escrow.connect(relayer).fund(message({ hook: h }), ATT, GAS)).wait();
-  const d = await escrow.disputes(h);
-  assert.equal(d.pot, 99_987n);
-  const before = await bal(claimant);
+  await reverts(escrow, relayer, "resolve", [h], "NoVerdict()");
+  assert.equal((await escrow.disputes(h)).pot, 99_987n);
+  await tick();
   await verdict(h, 0);
   await (await escrow.connect(stranger).resolve(h, GAS)).wait();
-  assert.equal((await bal(claimant)) - before, 99_987n);
+  assert.equal(await escrow.owed(CLAIMANT), 99_987n);
+  assert.equal(await withdraw(claimant), 99_987n);
   assert.equal(await bal(ESCROW), 0n);
   await reverts(escrow, stranger, "resolve", [h], "AlreadyResolved()");
+  await reverts(escrow, claimant, "withdraw", [], "NothingOwed()");
   console.log("ok 1 verdict 0 refunds the claimant with USDC minted over CCTP");
 }
 
-// 2. Verdict 100 pays the respondent; verdict 50 splits.
+// 2. Verdict 100 pays the respondent; verdict 50 (VOID) splits 50/50, the odd unit to the claimant.
 {
-  const h = keccak256(toUtf8Bytes("dispute-pay"));
-  await (await escrow.connect(claimant).openDispute(h, R, "u", GAS)).wait();
+  const h = await open(claimant, "dispute-pay");
   await (await escrow.connect(relayer).fund(message({ hook: h, amount: 50_000n, fee: 0n }), ATT, GAS)).wait();
-  const before = await bal(respondent);
+  await tick();
   await verdict(h, 100);
   await (await escrow.resolve(h, GAS)).wait();
-  assert.equal((await bal(respondent)) - before, 50_000n);
+  assert.equal(await withdraw(respondent), 50_000n);
 
-  const s = keccak256(toUtf8Bytes("dispute-split"));
-  await (await escrow.connect(claimant).openDispute(s, R, "u", GAS)).wait();
+  const s = await open(claimant, "dispute-split");
   await (await escrow.connect(relayer).fund(message({ hook: s, amount: 1001n, fee: 0n }), ATT, GAS)).wait();
+  await tick();
   await verdict(s, 50);
   const [ready, score, toC, toR] = await escrow.preview(s);
   assert.deepEqual([ready, score, toC, toR], [true, 50n, 501n, 500n]);
-  const c0 = await bal(claimant), r0 = await bal(respondent);
   await (await escrow.resolve(s, GAS)).wait();
-  assert.equal((await bal(claimant)) - c0, 501n);
-  assert.equal((await bal(respondent)) - r0, 500n);
+  assert.equal(await withdraw(claimant), 501n);
+  assert.equal(await withdraw(respondent), 500n);
   console.log("ok 2 verdict 100 pays the respondent, 50 splits");
 }
 
-// 3. USDC that arrives after resolution is paid out at once, never stranded.
+// 3. USDC that arrives after resolution is credited to the claimant, never stranded.
 {
-  const h = keccak256(toUtf8Bytes("dispute-late"));
-  await (await escrow.connect(claimant).openDispute(h, R, "u", GAS)).wait();
-  await verdict(h, 0);
+  const h = await open(claimant, "dispute-late");
+  await (await escrow.connect(relayer).fund(message({ hook: h, amount: 10n, fee: 0n }), ATT, GAS)).wait();
+  await tick();
+  await verdict(h, 100);
   await (await escrow.resolve(h, GAS)).wait();
-  const before = await bal(claimant);
   await (await escrow.connect(relayer).fund(message({ hook: h, amount: 7000n, fee: 1n }), ATT, GAS)).wait();
-  assert.equal((await bal(claimant)) - before, 6999n);
+  assert.equal(await escrow.owed(CLAIMANT), 6999n);
+  assert.equal(await withdraw(claimant), 6999n);
+  assert.equal(await withdraw(respondent), 10n);
   assert.equal(await bal(ESCROW), 0n);
-  console.log("ok 3 late funding pays out at the recorded verdict");
+  console.log("ok 3 late funding is credited to the claimant");
 }
 
 // 4. Every malformed or misrouted message is refused before anything is minted.
 {
-  const h = keccak256(toUtf8Bytes("dispute-guards"));
-  await (await escrow.connect(claimant).openDispute(h, R, "u", GAS)).wait();
-  await reverts(escrow, claimant, "openDispute", [h, R, "u"], "DisputeExists()");
+  const h = await open(claimant, "dispute-guards");
+  await reverts(escrow, claimant, "openDispute", [keccak256(toUtf8Bytes("dispute-guards")), R, "u"], "DisputeExists()");
   await reverts(escrow, relayer, "fund", [message({ hook: keccak256(toUtf8Bytes("nope")) }), ATT], "UnknownDispute()");
   await reverts(escrow, relayer, "fund", [message({ hook: h, src: 0 }), ATT], "WrongSourceDomain()");
   await reverts(escrow, relayer, "fund", [message({ hook: h, dst: 26 }), ATT], "WrongDestinationDomain()");
@@ -195,22 +203,15 @@ const R = await respondent.getAddress();
   console.log("ok 4 misrouted, malformed and replayed messages are refused");
 }
 
-// 5. Dispute-id squatting: the id is chosen by the claimant and can be public (the M2 script derives it
-//    from a label). Someone who opens that id first, naming himself as claimant and respondent, must not
-//    be able to take a burn the real claimant makes. Before the fix the attacker received the full pot.
+// 5. Ids are namespaced by the claimant, and only the claimant's own burn funds the dispute.
 {
-  const h = keccak256(toUtf8Bytes("predge/cctp-m2/m2-squat"));
   const A = await stranger.getAddress();
-  await (await escrow.connect(stranger).openDispute(h, A, "u", GAS)).wait();
-  // The honest claimant's open now reverts; a burn made anyway names the honest claimant as depositor.
-  await reverts(escrow, claimant, "openDispute", [h, R, "u"], "DisputeExists()");
-  await reverts(escrow, relayer, "fund", [message({ hook: h, amount: 100_000n, fee: 0n }), ATT], "WrongDepositor()");
-  assert.equal(await bal(A), 0n);
-  // A burn by anyone other than the claimant is refused for an honest dispute too.
-  const g = keccak256(toUtf8Bytes("dispute-third-party"));
-  await (await escrow.connect(claimant).openDispute(g, R, "u", GAS)).wait();
+  const salt = keccak256(toUtf8Bytes("same-salt"));
+  await (await escrow.connect(stranger).openDispute(salt, A, "u", GAS)).wait();
+  const g = await open(claimant, "same-salt"); // same salt, different claimant: no collision
+  assert.notEqual(g, await escrow.disputeId(A, salt));
   await reverts(escrow, relayer, "fund", [message({ hook: g, depositor: A }), ATT], "WrongDepositor()");
-  console.log("ok 5 a squatted dispute id cannot capture a burn made by someone else");
+  console.log("ok 5 a dispute id cannot be squatted or funded by someone else");
 }
 
 console.log("all PredgeCctpDisputeEscrow tests passed");

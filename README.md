@@ -190,22 +190,36 @@ More at [data.predge.io/settlement](https://data.predge.io/settlement).
 `contracts/PredgeCctpDisputeEscrow.sol` settles a dispute raised on Arbitrum One with USDC burned on
 Base through Circle CCTP V2.
 
-1. `openDispute(requestHash, respondent, requestURI)` on Arbitrum. The caller is the claimant; the escrow
-   files the ERC-8004 validation request in `PredgeAgentValidator`, so the verdict cannot predate the dispute.
-2. `depositForBurnWithHook` on Base with `mintRecipient = destinationCaller = escrow` and
-   `hookData = requestHash`, sent from the claimant's address: `fund` refuses a burn whose depositor is
-   not the dispute's claimant. Check `disputes(requestHash).claimant` before burning.
-3. `fund(message, attestation)` on Arbitrum: the escrow calls `MessageTransmitterV2.receiveMessage` itself
-   and credits the minted USDC to the dispute named in the hook data.
-4. The validator records the verdict (`validationResponse`) in `PredgeAgentValidator`.
-5. `resolve(requestHash)`, callable by anyone: `score`% of the pot to the respondent, the rest to the
-   claimant (0 = full refund).
+1. `openDispute(salt, respondent, requestURI)` on Arbitrum. The caller is the claimant. The dispute id is
+   `disputeId(claimant, salt) = keccak256(abi.encode(escrow, claimant, salt))`, so nobody else can open or squat
+   it; use a fresh random salt. The escrow files the ERC-8004 validation request for the id in
+   `PredgeAgentValidator` (an already filed, still unanswered request for the id is adopted).
+2. `depositForBurnWithHook` on Base with `mintRecipient = destinationCaller = escrow` and `hookData = id`, sent
+   **from the claimant's address**: `fund` refuses a burn whose depositor is not the claimant.
+3. `fund(message, attestation)` on Arbitrum, by anyone: the escrow calls `MessageTransmitterV2.receiveMessage`
+   itself and credits the minted USDC (`amount - feeExecuted`) to the dispute.
+4. The validator records the verdict (`validationResponse(id, score, ...)`). **It counts only if recorded after
+   the dispute was first funded**; an earlier verdict is ignored.
+5. `resolve(id)`, by anyone, on a funded dispute with a counting verdict: `score`% of the pot to the respondent,
+   the rest to the claimant (0 = full refund, 100 = respondent in full, 50 = the registry's VOID = 50/50 split;
+   the respondent's share is rounded down). Shares are credited, not pushed.
+6. `withdraw()`: each party pulls its balance (`owed(address)`). A party blacklisted by USDC cannot block the
+   other; its own balance stays credited.
+
+Recovery and edge cases:
+- **No verdict:** 7 days (`RECLAIM_DELAY`) after the last successful `fund`, `reclaim(id)` (anyone) credits the
+  whole pot to the claimant, unless a counting verdict exists. A verdict recorded before funding ends here too.
+- **Late funding:** USDC arriving for a dispute that is already resolved or reclaimed is credited in full to the
+  claimant's withdrawable balance (the verdict was public before that money arrived). `fund` never reverts for it.
+- USDC sent to the escrow any other way is never credited and cannot be withdrawn.
 
 No owner, no admin path. The verdict is only as independent as the validator seat in `PredgeAgentValidator`.
 
 ```bash
-npm test                                                     # offline, ganache + mock CCTP transmitter
+npm test                                                     # offline: ganache + mock CCTP transmitter, audit findings F1-F5
 NETWORK=arbitrum-one node script/deploy-cctp-escrow.mjs --estimate
-node script/cctp-m2-dispute.mjs                              # read-only plan and Base simulation
-node script/cctp-m2-dispute.mjs --verify                     # read-only proof table for a recorded run
+node script/cctp-m2-dispute.mjs --preflight                  # balances, validator key; exit 2 with top-up instructions
+scripts/m2-run.sh --circle-env ~/predge-circle-mainnet/.env  # whole M2 run, DRY RUN by default
+scripts/m2-run.sh --circle-env ~/predge-circle-mainnet/.env --yes-mainnet   # sends (mainnet, real USDC)
+node script/cctp-m2-dispute.mjs --id <label> --verify        # read-only proof table for a recorded run
 ```
