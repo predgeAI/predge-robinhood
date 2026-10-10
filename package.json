@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Predge agent-settlement stack ported to Robinhood Chain testnet (Arbitrum Orbit L2) \u2014 a resolution / dispute-verification oracle for on-chain prediction markets & RWA perps.",
+  "description": "Predge agent-settlement stack ported to Robinhood Chain testnet (Arbitrum Orbit L2) — a resolution / dispute-verification oracle for on-chain prediction markets & RWA perps.",
   "scripts": {
     "genwallet": "node script/genwallet.mjs",
     "deploy-validator": "node script/deploy-validator.mjs",
@@ -13,7 +13,11 @@
     "deploy-all": "node script/deploy-all.mjs",
     "estimate-deploy": "node script/estimate-deploy.mjs",
     "deploy-all:rh-mainnet": "NETWORK=rh-mainnet node script/deploy-all.mjs",
-    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs"
+    "deploy-all:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-all.mjs",
+    "test": "node test/cctp-dispute-escrow.test.mjs && node test/cctp-escrow-audit-findings.test.mjs && node test/bond-reclaim-window.test.mjs",
+    "deploy-cctp-escrow:arbitrum-one": "NETWORK=arbitrum-one node script/deploy-cctp-escrow.mjs",
+    "cctp-m2": "node script/cctp-m2-dispute.mjs",
+    "m2-run": "scripts/m2-run.sh"
   },
   "dependencies": {
     "ethers": "^6.13.4",
@@ -21,5 +25,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "ganache": "^7.9.2"
   }
 }
