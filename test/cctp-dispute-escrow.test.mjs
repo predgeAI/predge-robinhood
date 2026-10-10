@@ -93,12 +93,13 @@ const escrow = await deploy("PredgeCctpDisputeEscrow.sol", "PredgeCctpDisputeEsc
   await usdc.getAddress(), await mt.getAddress(), await registry.getAddress(), TOKEN_MESSENGER, BASE, ARB);
 const ESCROW = await escrow.getAddress();
 const b32 = (a) => zeroPadValue(getAddress(a), 32);
+const CLAIMANT = await claimant.getAddress();
 const u256 = (n) => zeroPadValue(toBeHex(n), 32);
 
 let nonceSeq = 1;
 /** A CCTP V2 message exactly as MessageTransmitterV2 emits it (header + BurnMessageV2 body). */
 function message({ src = BASE, dst = ARB, sender = TOKEN_MESSENGER, caller = ESCROW, recipient = ESCROW,
-  amount = 100_000n, fee = 13n, hook, depositor = "0x718bc0901be5008698df3ffdea616085c2970bd6", nonce } = {}) {
+  amount = 100_000n, fee = 13n, hook, depositor = CLAIMANT, nonce } = {}) {
   const n = nonce ?? u256(nonceSeq++);
   const header = solidityPacked(
     ["uint32", "uint32", "uint32", "bytes32", "bytes32", "bytes32", "bytes32", "uint32", "uint32"],
@@ -192,6 +193,24 @@ const R = await respondent.getAddress();
   // Only the registry's validator can write the verdict; a stranger cannot settle it.
   await assert.rejects(registry.connect(stranger).validationResponse.staticCall(h, 0, "u", keccak256("0x01"), "t"));
   console.log("ok 4 misrouted, malformed and replayed messages are refused");
+}
+
+// 5. Dispute-id squatting: the id is chosen by the claimant and can be public (the M2 script derives it
+//    from a label). Someone who opens that id first, naming himself as claimant and respondent, must not
+//    be able to take a burn the real claimant makes. Before the fix the attacker received the full pot.
+{
+  const h = keccak256(toUtf8Bytes("predge/cctp-m2/m2-squat"));
+  const A = await stranger.getAddress();
+  await (await escrow.connect(stranger).openDispute(h, A, "u", GAS)).wait();
+  // The honest claimant's open now reverts; a burn made anyway names the honest claimant as depositor.
+  await reverts(escrow, claimant, "openDispute", [h, R, "u"], "DisputeExists()");
+  await reverts(escrow, relayer, "fund", [message({ hook: h, amount: 100_000n, fee: 0n }), ATT], "WrongDepositor()");
+  assert.equal(await bal(A), 0n);
+  // A burn by anyone other than the claimant is refused for an honest dispute too.
+  const g = keccak256(toUtf8Bytes("dispute-third-party"));
+  await (await escrow.connect(claimant).openDispute(g, R, "u", GAS)).wait();
+  await reverts(escrow, relayer, "fund", [message({ hook: g, depositor: A }), ATT], "WrongDepositor()");
+  console.log("ok 5 a squatted dispute id cannot capture a burn made by someone else");
 }
 
 console.log("all PredgeCctpDisputeEscrow tests passed");

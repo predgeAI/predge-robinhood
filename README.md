@@ -193,7 +193,8 @@ Base through Circle CCTP V2.
 1. `openDispute(requestHash, respondent, requestURI)` on Arbitrum. The caller is the claimant; the escrow
    files the ERC-8004 validation request in `PredgeAgentValidator`, so the verdict cannot predate the dispute.
 2. `depositForBurnWithHook` on Base with `mintRecipient = destinationCaller = escrow` and
-   `hookData = requestHash`.
+   `hookData = requestHash`, sent from the claimant's address: `fund` refuses a burn whose depositor is
+   not the dispute's claimant. Check `disputes(requestHash).claimant` before burning.
 3. `fund(message, attestation)` on Arbitrum: the escrow calls `MessageTransmitterV2.receiveMessage` itself
    and credits the minted USDC to the dispute named in the hook data.
 4. The validator records the verdict (`validationResponse`) in `PredgeAgentValidator`.

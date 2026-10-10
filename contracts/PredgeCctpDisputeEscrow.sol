@@ -21,6 +21,12 @@ pragma solidity ^0.8.24;
 ///              recorded score: `score`% to the respondent, the rest to the claimant. Score 0 is a
 ///              full refund to the claimant, 100 pays the respondent in full.
 ///
+///         The burn must be made by the claimant: `fund` requires the BurnMessageV2 `messageSender`
+///         (the depositor on the source chain, attested by Circle) to equal the dispute's claimant.
+///         The dispute id is chosen by the claimant and may be public, so without this binding
+///         whoever opened the id first would own a burn made by someone else. Open the dispute and
+///         check `disputes(id).claimant` BEFORE burning; a burn that does not match is never minted.
+///
 ///         USDC that reaches the escrow any other way (a plain transfer, or a burn that names the
 ///         escrow as mintRecipient without naming it as destinationCaller and is relayed by
 ///         someone else) is never credited to a dispute and has no withdrawal path. The relay
@@ -109,6 +115,7 @@ contract PredgeCctpDisputeEscrow {
     error WrongDestinationCaller();
     error WrongMintRecipient();
     error BadHookData();
+    error WrongDepositor();
     error ReceiveFailed();
     error NothingMinted();
     error TransferFailed();
@@ -149,6 +156,7 @@ contract PredgeCctpDisputeEscrow {
 
     /// @notice Relay a CCTP V2 burn from the source chain and credit the minted USDC to the
     ///         dispute named in its hook data. Anyone may call; the message decides everything.
+    ///         The source-chain depositor must be the dispute's claimant (see the contract notice).
     function fund(bytes calldata message, bytes calldata attestation) external returns (uint256 credited) {
         if (message.length < HEADER_LEN + B_HOOK_DATA) revert BadMessage();
         if (_u32(message, H_SOURCE_DOMAIN) != sourceDomain) revert WrongSourceDomain();
@@ -162,6 +170,7 @@ contract PredgeCctpDisputeEscrow {
 
         Dispute storage d = disputes[requestHash];
         if (d.openedAt == 0) revert UnknownDispute();
+        if (_b32(message, HEADER_LEN + B_MESSAGE_SENDER) != bytes32(uint256(uint160(d.claimant)))) revert WrongDepositor();
 
         uint256 before = usdc.balanceOf(address(this));
         if (!transmitter.receiveMessage(message, attestation)) revert ReceiveFailed();

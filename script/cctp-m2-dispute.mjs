@@ -127,7 +127,7 @@ async function plan() {
   if (escrow && (await p.arb.getCode(escrow)) === "0x") console.log(`!! no contract at ${escrow} on Arbitrum One`);
   else if (escrow) {
     const d = ESC.decodeFunctionResult("disputes", await p.arb.call({ to: escrow, data: ESC.encodeFunctionData("disputes", [requestHash]) }));
-    console.log(`dispute state: openedAt ${d.openedAt} resolved ${d.resolved} pot ${usd(d.pot)} totalFunded ${usd(d.totalFunded)}`);
+    console.log(`dispute state: openedAt ${d.openedAt} claimant ${d.claimant} respondent ${d.respondent} resolved ${d.resolved} pot ${usd(d.pot)} totalFunded ${usd(d.totalFunded)}`);
     if (d.openedAt === 0n) {
       try { await p.arb.call({ from: W.address, ...calldata("open") }); console.log("simulate open: ok"); }
       catch (e) { console.log("simulate open: REVERT", e.shortMessage || e.message); }
@@ -151,6 +151,17 @@ async function plan() {
 }
 
 // ---------------------------------------------------------------- send (owner only)
+/** The dispute id is public (derived from --id), so anyone can open it first. Burn only into a dispute we own. */
+async function assertOurDispute() {
+  const d = ESC.decodeFunctionResult("disputes", await p.arb.call({ to: escrow, data: ESC.encodeFunctionData("disputes", [requestHash]) }));
+  if (d.openedAt === 0n) throw new Error("dispute not open on Arbitrum yet: run --step open first");
+  if (getAddress(d.claimant) !== getAddress(W.address) || getAddress(d.respondent) !== respondent) {
+    throw new Error(`dispute ${requestHash} was opened by ${d.claimant} for ${d.respondent}, not by us for ${respondent}: pick a new --id, do not burn`);
+  }
+  if (d.resolved) throw new Error("dispute already resolved: pick a new --id");
+  const answered = REG.decodeFunctionResult("isValidated", await p.arb.call({ to: REGISTRY, data: REG.encodeFunctionData("isValidated", [requestHash]) }))[0];
+  if (answered) throw new Error("verdict already recorded before funding: pick a new --id");
+}
 function readEnvFile(path) {
   const out = {};
   for (const line of readFileSync(path, "utf8").split("\n")) { const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim()); if (m) out[m[1]] = m[2].replace(/^["']|["']$/g, ""); }
@@ -188,6 +199,7 @@ async function send() {
   if (!escrow) throw new Error("no escrow address");
   if (state.steps[step]?.status === 1) { console.log(`${step} already done: ${state.steps[step].txHash}`); return; }
   if (step === "burn") {
+    await assertOurDispute();
     const { maxFee } = await maxFeeFor();
     state.maxFee = maxFee.toString(); save();
     return circleSend("burn", calldata("burn", { maxFee }));
